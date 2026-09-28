@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>Boosty goal</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@500;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --ink: #fff8ec;
+    --fill: #ff9f43;
+    --empty: rgba(255, 248, 236, .22);
+  }
+  html, body { margin: 0; background: transparent; }
+  body {
+    font-family: "Unbounded", sans-serif;
+    color: var(--ink);
+    width: 460px;
+    padding: 16px 20px;
+    text-shadow: 0 2px 6px rgba(0,0,0,.55);
+  }
+  .top { display: flex; align-items: baseline; justify-content: space-between; gap: 16px; }
+  .title { font-size: 15px; font-weight: 500; line-height: 1.3; max-width: 260px; }
+  .count { font-size: 44px; font-weight: 700; line-height: 1; letter-spacing: -0.02em; white-space: nowrap; }
+  .bar { display: flex; gap: 5px; margin-top: 12px; }
+  .seg {
+    flex: 1; height: 12px; border-radius: 6px;
+    background: var(--empty);
+    box-shadow: 0 1px 4px rgba(0,0,0,.35);
+    transition: background .6s;
+  }
+  .seg.on { background: var(--fill); }
+  .bump { animation: bump .6s ease; }
+  @keyframes bump { 40% { transform: scale(1.12); } }
+  @media (prefers-reduced-motion: reduce) { .bump { animation: none; } }
+</style>
+</head>
+<body>
+  <div class="top">
+    <div class="title" id="title">Окупить интернет для стримов</div>
+    <div class="count" id="count">–/–</div>
+  </div>
+  <div class="bar" id="bar"></div>
+
+<script>
+  // ВСТАВЬТЕ адрес вашего воркера (или передайте ?api=... в ссылке)
+  const params = new URLSearchParams(location.search);
+  const API = params.get("api") || "https://boosty-goal.1tropican1.workers.dev/";
+  const REFRESH_MS = 60000;
+  if (params.get("title")) document.getElementById("title").textContent = params.get("title");
+
+  const countEl = document.getElementById("count");
+  const barEl = document.getElementById("bar");
+  let last = null;
+
+  function render({ current, target }) {
+    countEl.textContent = current + "/" + target;
+    if (last !== null && current > last) {
+      countEl.classList.remove("bump"); void countEl.offsetWidth; countEl.classList.add("bump");
+    }
+    last = current;
+    // сегменты по одному на подписчика; если цель большая, показываем сплошную шкалу
+    const n = target <= 12 ? target : 1;
+    barEl.innerHTML = "";
+    for (let i = 0; i < n; i++) {
+      const s = document.createElement("div");
+      s.className = "seg";
+      if (target <= 12) {
+        if (i < current) s.classList.add("on");
+      } else {
+        s.style.background = `linear-gradient(90deg, var(--fill) ${Math.min(100, current / target * 100)}%, var(--empty) 0)`;
+      }
+      barEl.appendChild(s);
+    }
+  }
+
+  async function tick() {
+    try {
+      const r = await fetch(API, { cache: "no-store" });
+      const d = await r.json();
+      if (d.error) throw new Error(d.error);
+      render(d);
+    } catch (e) { console.warn("goal fetch failed:", e); }
+  }
+  tick();
+  setInterval(tick, REFRESH_MS);
+</script>
+</body>
+</html>
